@@ -1,0 +1,6 @@
+This is a clone of Jasmine BDD (http://pivotal.github.com/jasmine/) it has some changes, specially at the spies.
+
+Sample of usage can be found at sassmine.test.js
+
+For now the implementation uses the DOM, so it only works on the browser.
+Modify the library to support nodejs a TODO
