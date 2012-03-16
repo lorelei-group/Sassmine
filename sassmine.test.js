@@ -1,3 +1,8 @@
+/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
 describe("Testing Sassmine", function() {
 	// We remove original Sassmine fail system
 	var originalFail = Sassmine.fail;

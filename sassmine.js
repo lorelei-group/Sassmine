@@ -1,4 +1,9 @@
 /**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+/**
  * A re-implementation of Jasmine (http://pivotal.github.com/jasmine/) just for fun
  *
  * Author:
