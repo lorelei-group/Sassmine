@@ -37,7 +37,7 @@ function GodTest() {
 
 	console.log(mock.talk.getCallCount()); // 3
 	console.log(mock.talk.getArguments()); // [ [], [], [ 'Hi' ] ]
-	console.log(mock.talk.getLastScope() === 'mock'); // true
+	console.log(mock.talk.getLastScope() === mock); // true
 
 	console.log(mock.blessed); // undefined
 	god.talkTo(mock);
