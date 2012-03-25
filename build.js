@@ -1,0 +1,883 @@
+/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+(function() {
+	global = this;
+
+	function resolveNamespace(ns) {
+		var path = ns.split('.');
+
+		var current = use.root;
+		for (var i = 0; i < path.length; i++)
+			current = current[path[i]] = current[path[i]] || {};
+
+		return current;
+	}
+
+	function use(var_args) {
+		var namespaces = [];
+
+		for (var i = 0; i < arguments.length; i++)
+			namespaces[i] = resolveNamespace(arguments[i]);
+
+		return {
+			on: function(callback) {
+				callback.apply(use.root, namespaces);
+			}
+		};
+	}
+
+	use.isNodejs = typeof module !== 'undefined' && module.exports;
+	//typeof window === 'undefined'
+
+	use.root = global;
+	global.use = use;
+
+})();
+
+use().on(function() {
+
+	function wrap(object, parent, method) {
+		var original = object[method];
+		var code = original.toString();
+		if (code.indexOf('this.base') === -1 && code.indexOf('this.proto') === -1)
+			return;
+
+		var base = parent[method];
+		var wrapper_to_allow_base = function wrapper_to_allow_base() {
+			var baseValue = this.base, protoValue = this.proto;
+			(this.base = base), (this.proto = parent);
+			var result = original.apply(this, arguments);
+			(this.base = baseValue), (this.proto = protoValue);
+			return result;
+		}
+		wrapper_to_allow_base.toString = function() {
+			return original.toString();
+		};
+
+		object[method] = wrapper_to_allow_base;
+	}
+
+	var prototype = ({}).__proto__ ?
+		function prototype(child, parent) {
+			child.__proto__ = parent;
+			return child;
+		} :
+		function prototype(config, parent) {
+			function intermediate() { }
+			intermediate.prototype = parent;
+			var child = new intermediate();
+
+			for (var i in config) if (config.hasOwnProperty(i))
+				child[i] = config[i];
+
+			return child;
+		};
+
+	var Class = global.Class = function() { };
+	Class.extend = function(config) {
+		var base = this.prototype;
+		config = config || {};
+
+		if (!config.hasOwnProperty('constructor'))
+			config.constructor = function() {
+				this.base.apply(this, arguments);
+			};
+
+		for (var i in config) if (config.hasOwnProperty(i) && typeof config[i] === 'function')
+				wrap(config, base, i);
+
+		var clazz = prototype(config.constructor, this);
+		clazz.prototype = prototype(config, this.prototype);
+
+		if (!clazz.extend)
+			clazz.extend = Class.extend;
+
+		return clazz;
+	};
+});
+/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+use('sassmine').on(function(sas) {
+
+	sas.ConsolePrinter = Class.extend({
+
+		ERROR: '\033[1;31;41m',
+		SUITE: '\033[32m',
+		SPEC: '\033[1,32m',
+		RESTORE: '\033[39m',
+
+		spacer: '\t',
+		
+		constructor: function() {
+			this.base();
+			this.indent = 0;
+		},
+
+		getIndent: function() {
+			var result = '';
+			for (var i = indent; i--; )
+				result += this.spacer;
+			return result;
+		},
+
+		addLevel: function() {
+			this.indent++;
+		},
+
+		removeLevel: function() {
+			this.indent--;
+		},
+
+		print: function(type, message) {
+			if (type === sas.MessageType.ERROR)
+				return console.log(this.ERROR + message + this.RESTORE)
+
+			var pre = type === sas.MessageType.SUITE ? this.SUITE : this.SPEC;
+			console.log(pre + message + this.RESTORE);
+		}
+
+	});
+
+});/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+use('sassmine').on(function(sas) {
+
+	sas.DomPrinter = Class.extend({
+
+		SUITE: 'sassmine sassmineSuite',
+		SPEC: 'sassmine sassmineSpec',
+		ERROR: 'sassmineErrorMessages',
+		FAIL: 'sassmineFailed',
+
+		constructor: function() {
+			this.base();
+			this.root = document.createElement('div');
+			this.current = this.root;
+
+			var self = this;
+			window.onload = function() {
+				document.body.appendChild(self.root);
+			};
+		},
+
+		addLevel: function(type) {
+			var div = document.createElement('div');
+			div.className = type === sas.MessageType.SUITE ? this.SUITE : this.SPEC;
+			this.current.appendChild(div);
+			this.current = div;
+		},
+
+		removeLevel: function() {
+			this.current = this.current.parentNode;
+		},
+
+		print: function(type, message) {
+			var div = document.createElement('div');
+			div.innerHTML = message;
+			this.current.appendChild(div);
+
+			if (type === sas.MessageType.ERROR)
+				div.className = this.ERROR;
+			
+			if (type === sas.MessageType.ERROR)
+				return this.fail();
+		},
+
+		fail: function(message) {
+			var current = this.current;
+			while (current !== this.root) {
+				if (current.className.indexOf(this.FAIL) === -1)
+					current.className += ' ' + this.FAIL;
+				current = current.parentNode;
+			}
+		}
+	});
+
+});/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+use('sassmine').on(function(sas) {
+
+	var Block = Class.extend({
+
+		constructor: function(message, code) {
+			this.base();
+			this.message = message;
+			this.code = code;
+
+			this.before = [];
+			this.after = [];
+		},
+
+		execute: function() {
+			this.code.call(null, sas);
+		},
+
+		addBeforeEach: function(action) {
+			this.before.push(action);
+		},
+
+		addAfterEach: function(action) {
+			this.after.push(action);
+		},
+
+		beforeEach: function() {
+			for (var i = 0; i < this.before.length; i++)
+				this.before[i].call(null, sas);
+		},
+
+		afterEach: function() {
+			for (var i = 0; i < this.after.length; i++)
+				this.after[i].call(null, sas);
+		}
+
+	});
+
+	sas.Spec = sas.Suite = Block.extend();
+
+});/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+/**
+ * A re-implementation of Jasmine (http://pivotal.github.com/jasmine/) just for fun
+ *
+ * Author:
+ *	Seldaiendil <seldaiendil2@gmail.com>
+ *	A. Matías Q. <amatiasq@gmail.com>
+ */
+
+use('sassmine').on(function(sas) {
+
+ 	sas.BlockType = {
+		SUITE: 1,
+		SPEC: 2,
+	};
+
+ 	sas.MessageType = {
+		SUITE: 1,
+		SPEC: 2,
+		ERROR: 3
+	};
+
+	sas.Sassmine = Class.extend({
+
+		printer: new (use.isNode ? sas.ConsolePrinter : sas.DomPrinter),
+
+		constructor: function() {
+			this.base();
+
+			this.levels = [ new sas.Suite('root suite') ];
+			this.current = 0;
+		},
+
+		addBlock: function(type, node) {
+			this.printer.addLevel(type);
+			this.printer.print(type, node.message);
+
+			var parent = this.levels[this.current];
+			this.current = this.levels.length;
+			this.levels[this.current] = node;
+
+ 			//try {
+ 				parent.beforeEach();
+ 				node.execute();
+ 				parent.afterEach();
+			/*} catch(err) {
+				this.fail(err);
+			} finally {*/
+				this.levels.length--;
+				this.current--;
+			//}
+
+ 			this.printer.removeLevel();
+		},
+
+ 		fail: function(error) {
+			this.printer.print(sas.MessageType.ERROR, error.message);
+		},
+
+		describe: function(message, code) {
+			this.addBlock(sas.BlockType.SUITE, new sas.Suite(message, code));
+		},
+
+		it: function(message, code) {
+			this.addBlock(sas.BlockType.SPEC, new sas.Spec(message, code));
+		},
+
+		beforeEach: function(action) {
+			this.levels[this.current].addBeforeEach(action);
+		},
+
+		afterEach: function(action) {
+			this.levels[this.current].addBeforeEach(action);
+		}
+	});
+
+
+	// this is global
+	var defaultInstance = new sas.Sassmine();
+
+	this.xdescribe = function() { };
+	this.describe = function(message, action) {
+		defaultInstance.describe(message, action);
+	};
+
+	this.xit = function() { };
+	this.it = function(message, action) {
+		defaultInstance.it(message, action);
+	};
+
+	this.beforeEach = function(action) {
+		defaultInstance.beforeEach(action);
+	};
+	this.afterEach = function(action) {
+		defaultInstance.afterEach(action);
+	}
+
+	this.expect = function(value) {
+		return new sas.Expectation(value);
+	};
+});
+
+
+
+
+/*
+(function(global) {
+	// Css classes
+	var css = {
+		'tree': "sassmine",
+		'hide': "sassmineHide",
+		'suite': "sassmineSuite",
+		'spec': "sassmineSpec",
+		'fail': "sassmineFailed",
+		'errors': "sassmineErrorMessages",
+	};
+
+	/* 
+	 * SassmineClass
+	 * Singleton instance 'Sassmine' will be exported
+	 * Contains general sassmine structure and references
+	 *
+	function SassmineClass() {
+		this.container = document.createElement("div");
+		this.button = document.createElement("button");
+		this.tree = new Suite({ dom: this.container }, "", function() { }, false, false);
+
+		this.currentNode = this.tree;
+		this.forceShow = false;
+		this.suitesCount = 0;
+		this.specsCount = 0;
+		
+		this.tree.dom.className = css.tree;
+		this.button.innerHTML = "Ver Todos";
+		this.container.appendChild(this.button);
+		this.button.onclick = buttonClickHandler;
+
+		var self = this;
+		window.addEventListener("load", function() {
+			document.body.appendChild(self.container);
+		}, true);
+	}
+	SassmineClass.prototype.notify = function(message) {
+		document.title = message;
+	};
+	SassmineClass.prototype.fail = function(message) {
+		this.currentNode.failed = true;
+		this.currentNode.fails.push(message);
+	};
+	SassmineClass.prototype.createSuite = function(message, handler, hide, isSpec) {
+		this.currentNode = new Suite(this.currentNode, message, handler, hide, isSpec);
+		this.currentNode.execute();
+		this.currentNode = this.currentNode.parent;
+	};
+	SassmineClass.prototype.describe = function(message, handler, hide) {
+		this.suitesCount++;
+		this.createSuite(message, handler, hide, false);
+		this.notify("Executed " + this.suitesCount + " suites with " + this.specsCount + " specs.");
+	};
+	SassmineClass.prototype.it = function(message, handler) {
+		this.specsCount++;
+		this.createSuite(message, handler, false, true);
+	};
+	SassmineClass.prototype.beforeEach = function(action) {
+		this.currentNode.beforeEach = action;
+	};
+	SassmineClass.prototype.afterEach = function(action) {
+		this.currentNode.afterEach = action;
+	};
+	var Sassmine = new SassmineClass();
+
+	function buttonClickHandler() {
+		var divs = Sassmine.container.getElementsByTagName("div");
+		for (var i=divs.length; i--; )
+			divs[i].className = divs[i].className.replace(css.hide, "");
+	};
+
+	/*
+	 * Suite
+	 * Private class
+	 * Provides a class to handle 'describe' and 'it' functions
+	 *
+	function Suite(parent, message, handler, hide, isSpec) {
+		this.dom = document.createElement("div");
+		this.message = message;
+		this.handler = handler;
+		this.failed = false;
+		this.hide = hide;
+		this.fails = [];
+
+		this.beforeEach = null;
+		this.afterEach = null;
+		this.parent = parent;
+		this.suites = [];
+		this.specs = [];
+		
+		if (typeof parent.parent !== 'undefined')
+			parent[isSpec ? 'specs' : 'suites'].push(this);
+		parent.dom.appendChild(this.dom);
+		this.dom.className = isSpec ? css.spec : css.suite;
+		this.dom.innerHTML = message;
+	}
+	Suite.prototype.execute = function() {
+		if (this.parent.beforeEach)
+			this.parent.beforeEach();
+		
+		try {
+			var result = this.handler.call(null);
+		} catch(ex) {
+			this.failed = true;
+			this.fails.push(ex.message);
+		}
+		
+		if (this.failed) {
+			this.parent.failed = true;
+			this.dom.className += " " + css.fail;
+			if (this.fails.length > 0) {
+				var messages = document.createElement('div');
+				messages.className = css.errors;
+				messages.innerHTML = this.fails.join("<br>");
+				this.dom.appendChild(messages);
+			}
+		} else if (this.hide && !Sassmine.forceShow) {
+			this.dom.className += " " + css.hide;
+		}
+		
+		if (this.parent.afterEach)
+			this.parent.afterEach();
+	};
+	
+	/*
+	 * Spy
+	 * Public class, will be exported
+	 * Provides a spy function than intercepts a function call and registrates scope, arguments and call counts
+	 */
+	function Spy(original, callOriginal) {
+		this.reset();
+		this.newSpy();
+		this.original = original;
+		this.callOriginal = callOriginal;
+	}
+	Spy.spyMethod = function(instance, method, callOriginal) {
+		var spy = new Spy(instance[method], callOriginal)
+		instance[method] = spy.spy;
+		return spy;
+	};
+	Spy.prototype.reset = function() {
+		this.callCount = 0;
+		this.scopes = [];
+		this.arguments = [];
+		this.lastScope = null;
+		this.lastArguments = [];
+	};
+	Spy.prototype.newSpy = function() {
+		var self = this;
+		this.spy = function() {
+			self.callCount++;
+			self.scopes.push(this);
+			var args = [];
+			for (var i=0, len=arguments.length; i<len; i++)
+				args.push(arguments[i]);
+			self.arguments.push(args);
+			self.lastScope = this;
+			self.lastArguments = args;
+			if (self.callOriginal)
+				self.original.apply(this, arguments);
+		};
+	};
+
+	/*
+	 * Expectations
+	 * Private class
+	 * Instances of this class will be returned when call expect() function
+	 * Each expectation instance has a subinstance 'not', than reverses the result
+	 *
+	function Expectation(target, not) {
+		this.target = target;
+		// If this isn't the "not" expectation it must create one
+		this.isNot = typeof not !== 'undefined';
+		if (!this.isNot)
+			this.not = new Expectation(target, true);
+	}
+	Expectation.prototype.test = function(bool, message) {
+		if (bool !== this.isNot)
+			return true;
+		Sassmine.fail(message.replace("[NOT] ", this.isNot ? "not " : ""));
+		return false;
+	};
+	Expectation.prototype.printObject = function(object) {
+		return "--[" + object + "]-- (" + (typeof object) + ")"
+	};
+	Expectation.prototype.standardMessage = function(target, text, objetive) {
+		var end = typeof objetive !== 'undefined' ? " " + this.printObject(objetive) : "";
+		return "Expected " + this.printObject(this.target) + " " + text + end;
+	};
+	
+	// Comparison expectations
+	Expectation.prototype.toBe = function(objetive) {
+		return this.test(this.target === objetive, this.standardMessage(this.target, "to [NOT] be", objetive));
+	};
+	Expectation.prototype.toBeLike = function(objetive) {
+		return this.test(this.target == objetive, this.standardMessage(this.target, "to [NOT] be like", objetive));
+	};
+	Expectation.prototype.toBeTrue = function() {
+		return this.test(this.target === true, this.standardMessage(this.target, "to [NOT] be", true));
+	};
+	Expectation.prototype.toBeFalse = function() {
+		return this.test(this.target === false, this.standardMessage(this.target, "to [NOT] be", false));
+	};
+	Expectation.prototype.toBeTruthy = function() {
+		return this.test(!!this.target, this.standardMessage(this.target, "to [NOT] be truthy"));
+	};
+	Expectation.prototype.toBeFalsy = function() {
+		return this.test(!this.target, this.standardMessage(this.target, "to [NOT] be falsy"));
+	};
+	Expectation.prototype.toBeNull = function() {
+		return this.test(this.target === null, this.standardMessage(this.target, "to [NOT] be", null));
+	};
+	Expectation.prototype.toBeUndefined = function() {
+		return this.test(typeof this.target === 'undefined',
+			this.standardMessage(this.target, "to [NOT] be undefined"));
+	};
+	Expectation.prototype.toBeNaN = function() {
+		return this.test(isNaN(this.target), this.standardMessage(this.target, "to [NOT] be", NaN));
+	};
+	
+	// Numeric expectations
+	Expectation.prototype.toBeBetween = function(val1, val2) {
+		return this.test(this.target >= Math.min(val1, val2) && this.target <= Math.max(val1, val2),
+			"Expected " + this.printObject(this.target) + " to [NOT] be between " +
+				this.printObject(val1) + " and " + this.printObject(val2));
+	};
+	Expectation.prototype.toBeLowerThan = function(num) {
+		return this.test(this.target < num, this.standardMessage(this.target, "to [NOT] be lower than", num));
+	};
+	Expectation.prototype.toBeBiggerThan = function(num) {
+		return this.test(this.target > num, this.standardMessage(this.target, "to [NOT] be bigger than", num));
+	};
+	Expectation.prototype.toBePositive = function() {
+		return this.test(this.target > 0, this.standardMessage(this.target, "to [NOT] be positive"));
+	};
+	Expectation.prototype.toBeNegative = function() {
+		return this.test(this.target < 0, this.standardMessage(this.target, "to [NOT] be negative"));
+	};
+	
+	// Class expectations
+	Expectation.prototype.toBeArray = function() {
+		return this.test(Object.prototype.toString.call(this.target) === "[object Array]",
+			this.standardMessage(this.target, "to [NOT] be a array"));
+	};
+	Expectation.prototype.toBeFunction = function() {
+		return this.test(this.target instanceof Function, this.standardMessage(this.target, "to [NOT] be a function"));
+	};
+	Expectation.prototype.toBeInstanceOf = function(targetClass) {
+		return this.test(this.target instanceof targetClass,
+			this.standardMessage(this.target, "to [NOT] be instance of", targetClass));
+	};
+	Expectation.prototype.toHaveProperty = function(propertyName) {
+		return this.test(propertyName in this.target,
+			this.standardMessage(this.target, "to [NOT] have property --[" + propertyName + "]--"));
+	};
+	
+	// Error manage expectations
+	Expectation.prototype.toThrowError = function() {
+		if (!(this.target instanceof Function))
+			throw new Error("Target is not a function");
+		try {
+			this.target.call(global);
+			return this.test(false, "Expected --[" + this.target + "]-- to [NOT] throw a exception");
+		} catch (ex) {
+			return this.test(true,
+				"Expected --[" + this.target + "]-- to [NOT] throw error but --["
+				+ ex + "]-- thrown with message --[" + ex.message + "]--");
+		}
+	};
+	Expectation.prototype.toThrow = function(errorClass) {
+		if (!(this.target instanceof Function))
+			throw new Error("Target is not a function");
+		try {
+			this.target.call(global);
+			return this.test(false, "Expected --[" + this.target + "]-- to [NOT] throw a exception");
+		} catch (ex) {
+			return this.test(ex instanceof errorClass,
+				"Expected --[" + this.target + "]-- to [NOT] throw --[" + errorClass +
+				"]-- but --[" + ex + "]-- thrown");
+		}
+	};
+
+	// Export to global scope
+	global.Spy = Spy;
+	global.Sassmine = Sassmine;
+	global.expect = function(target) {
+		return new Expectation(target);
+	};
+	global.xdescribe = function() { };
+	global.describe = function(message, action, hide) {
+		Sassmine.describe(message, action, hide);
+	};
+	global.xit = function() { };
+	global.it = function(message, action) {
+		Sassmine.it(message, action);
+	};
+	global.beforeEach = function(action) {
+		Sassmine.beforeEach(action);
+	};
+	global.afterEach = function(action) {
+		Sassmine.afterEach(action);
+	};
+})(this);
+*//**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+use('sassmine').on(function(sas) {
+
+	sas.ExpectationError = Class.extend.call(Error);
+
+	/*
+	 * Expectations
+	 * Private class
+	 * Instances of this class will be returned when call expect() function
+	 * Each expectation instance has a subinstance 'not', than reverses the result
+	 */
+	var ExpectationBase = Class.extend({
+
+		to: '',
+		success: null,
+
+		constructor: function(value) {
+			this.base();
+			this.value = value;
+		},
+
+		test: function(bool, message) {
+			if (bool !== this.success)
+				throw new sas.ExpectationError(message);
+			return true;
+		},
+
+		printObject: function(object) {
+			return '--[' + object + ']-- (' + (typeof object) + ')';
+		},
+
+		standardMsg: function(target, text, objetive) {
+			var end = typeof objetive !== 'undefined' ? ' ' + this.printObject(objetive) : '';
+			return "Expected " + this.printObject(this.value) + this.to + text + end;
+		},
+
+
+		// Comparison expectations
+		toBe: function(objetive) {
+			return this.test(this.value === objetive, this.standardMsg(this.value, 'be', objetive));
+		},
+		toBeLike: function(objetive) {
+			return this.test(this.value == objetive, this.standardMsg(this.value, "be like", objetive));
+		},
+		toBeTrue: function() {
+			return this.test(this.value === true, this.standardMsg(this.value, "be", true));
+		},
+		toBeFalse: function() {
+			return this.test(this.value === false, this.standardMsg(this.value, "be", false));
+		},
+		toBeTruthy: function() {
+			return this.test(!!this.value, this.standardMsg(this.value, "be truthy"));
+		},
+		toBeFalsy: function() {
+			return this.test(!this.value, this.standardMsg(this.value, "be falsy"));
+		},
+		toBeNull: function() {
+			return this.test(this.value === null, this.standardMsg(this.value, "be", null));
+		},
+		toBeUndefined: function() {
+			return this.test(typeof this.value === 'undefined', this.standardMsg(this.value, "be undefined"));
+		},
+		toBeNaN: function() {
+			return this.test(isNaN(this.value), this.standardMsg(this.value, "be", NaN));
+		},
+		
+		// Numeric expectations
+		toBeBetween: function(val1, val2) {
+			return this.test(this.value >= Math.min(val1, val2) && this.value <= Math.max(val1, val2),
+				"Expected " + this.printObject(this.value) + this.to + "be between " +
+					this.printObject(val1) + " and " + this.printObject(val2));
+		},
+		toBeLowerThan: function(num) {
+			return this.test(this.value < num, this.standardMsg(this.value, "be lower than", num));
+		},
+		toBeBiggerThan: function(num) {
+			return this.test(this.value > num, this.standardMsg(this.value, "be bigger than", num));
+		},
+		toBePositive: function() {
+			return this.test(this.value > 0, this.standardMsg(this.value, "be positive"));
+		},
+		toBeNegative: function() {
+			return this.test(this.value < 0, this.standardMsg(this.value, "be negative"));
+		},
+		
+		// Class expectations
+		toBeArray: function() {
+			return this.test(Object.prototype.toString.call(this.value) === "[object Array]",
+				this.standardMsg(this.value, "be a array"));
+		},
+		toBeFunction: function() {
+			return this.test(this.value instanceof Function, this.standardMsg(this.value, "be a function"));
+		},
+		toBeInstanceOf: function(clazz) {
+			return this.test(this.value instanceof clazz, this.standardMsg(this.value, "be instance of", clazz));
+		},
+		toHaveProperty: function(name) {
+			return this.test(name in this.value,
+				this.standardMsg(this.value, "have property --[" + name + "]--"));
+		},
+		toHaveOwnProperty: function(name) {
+			return this.test(this.value.hasOwnProperty(name),
+				this.standardMsg(this.value, "have property --[" + name + "]--"));
+		},
+		
+		// Error handle expectations
+		toThrowError: function() {
+			if (!(this.value instanceof Function))
+				throw new Error("Target is not a function");
+			try {
+				this.value.call(null);
+			} catch (ex) {
+				return this.test(true,
+					"Expected --[" + this.value + "]-- " + this.to + " throw error but --[" +
+					ex + "]-- thrown with message --[" + ex.message + "]--");
+			}
+			return this.test(false, "Expected --[" + this.value + "]-- " + this.to + " throw a error");
+		},
+		toThrow: function(errorClass) {
+			if (!(this.value instanceof Function))
+				throw new Error("Target is not a function");
+			try {
+				this.value.call(null);
+			} catch (ex) {
+				return this.test(ex instanceof errorClass,
+					"Expected --[" + this.value + "]-- " + this.to + " throw --[" + errorClass +
+					"]-- but --[" + ex + "]-- thrown");
+			}
+			return this.test(false, "Expected --[" + this.value + "]-- " + this.to + " throw a error");
+		}
+	});
+
+	var NegativeExpectation = ExpectationBase.extend({
+		success: false,
+		to: ' to not '
+	});
+
+	sas.Expectation = ExpectationBase.extend({
+		success: true,
+		to: ' to ',
+		
+		constructor: function(value) {
+			this.base(value);
+			this.not = new NegativeExpectation(value);
+		}
+	});
+});/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
+use('sassmine').on(function(sas) {
+
+	sas.Spy = function(original) {
+		var returnResult = false;
+		var result;
+		var fake;
+		var callOriginal;
+		var myArguments = [];
+
+		function spy() {
+			spy.callCount++;
+
+			var args = Array.prototype.slice.call(arguments);
+			// spy.arguments is the function arguments object
+			myArguments.push(args);
+			spy.scopes.push(this);
+
+			spy.lastArguments = args;
+			spy.lastScope = this;
+
+			spy.arguments = myArguments;
+
+			if (returnResult)
+				return result;
+
+			if (typeof fake === 'function')
+				return fake.apply(this, arguments);
+
+			if (callOriginal)
+				return original.apply(this, arguments);
+		}
+
+		spy.result = function(value) {
+			fake = null;
+			returnResult = true;
+			result = value;
+		};
+		spy.fake = function(funct) {
+			returnResult = false;
+		};
+		spy.setCallOriginal = function(value) {
+			callOriginal = value;
+		};
+
+		spy.callCount = 0;
+		spy.scopes = [];
+
+		return spy;
+	}
+
+	sas.Spy.spyMethod = function(object, method) {
+		var original = object[method];
+		var spy = object[method] = new Spy(original);
+		spy.restore = function() {
+			object[method] = original;
+		}
+	};
+
+	sas.Mock = function(clazz) {
+		var mock = new clazz();
+
+		for (var i in mock) if (i !== 'constructor')
+			mock[i] = Spy.spyMethod(mock, i);
+
+		return mock;
+	};
+
+});
