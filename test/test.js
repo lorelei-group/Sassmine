@@ -1,3 +1,4 @@
+/*
 function Animal() {
 	this._alive = true;
 }
@@ -43,3 +44,4 @@ function GodTest() {
 	god.talkTo(mock);
 	console.log(mock.blessed); // true
 }
+*/
