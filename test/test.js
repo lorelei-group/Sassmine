@@ -1,3 +1,8 @@
+/**
+ * Copyright © 2009-2012 A. Matías Quezada
+ */
+
+
 /*
 function Animal() {
 	this._alive = true;
