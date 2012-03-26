@@ -570,10 +570,17 @@ use('sassmine').on(function(sas) {
 	};
 
 	sas.Mock = function(clazz) {
-		var mock = new clazz();
+		var origin, mock;
 
-		for (var i in mock) if (i !== 'constructor')
-			mock[i] = Spy.spyMethod(mock, i);
+		if (typeof clazz === 'function') {
+			origin = mock = new clazz();
+		} else {
+			origin = clazz;
+			mock = {};
+		}
+
+		for (var i in origin) if (i !== 'constructor')
+			mock[i] = Spy.spyMethod(origin, i);
 
 		return mock;
 	};
