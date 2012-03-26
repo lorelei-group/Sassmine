@@ -288,15 +288,23 @@ use('sassmine').on(function(sas) {
 			this.current = this.levels.length;
 			this.levels[this.current] = node;
 
- 			try {
+			if (sas.DEBUG) {
  				parent.beforeEach();
  				node.execute();
  				parent.afterEach();
-			} catch(err) {
-				this.fail(err);
-			} finally {
 				this.levels.length--;
 				this.current--;
+			} else {
+	 			try {
+	 				parent.beforeEach();
+	 				node.execute();
+	 				parent.afterEach();
+				} catch(err) {
+					this.fail(err);
+				} finally {
+					this.levels.length--;
+					this.current--;
+				}
 			}
 
  			this.printer.removeLevel();
