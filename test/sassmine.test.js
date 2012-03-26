@@ -70,6 +70,7 @@ describe("Testing Sassmine", function() {
 				test(function() { expect(1).toBe(2); }, false);
 			});
 			it("should fail if the types are different", function() {
+				throw new Error("Pepito el verdulero es null");
 				test(function() { expect(1).toBe("1"); }, false);
 			});
 		});
