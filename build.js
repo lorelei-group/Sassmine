@@ -311,7 +311,7 @@ use('sassmine').on(function(sas) {
 		},
 
  		fail: function(error) {
-			this.printer.print(sas.MessageType.ERROR, error.message);
+			this.printer.print(sas.MessageType.ERROR, error.message || error.description);
 		},
 
 		describe: function(message, code) {
