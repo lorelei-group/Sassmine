@@ -363,7 +363,12 @@ use('sassmine').on(function(sas) {
 
 use('sassmine').on(function(sas) {
 
-	sas.ExpectationError = Class.extend.call(Error);
+	sas.ExpectationError = Class.extend.call(Error, {
+		constructor: function(message) {
+			this.base(message);
+			this.message = message;
+		}
+	});
 
 	/*
 	 * Expectations
