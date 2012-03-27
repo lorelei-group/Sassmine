@@ -311,7 +311,7 @@ use('sassmine').on(function(sas) {
 		},
 
  		fail: function(error) {
-			this.printer.print(sas.MessageType.ERROR, error.message || error.description);
+			this.printer.print(sas.MessageType.ERROR, error.message);
 		},
 
 		describe: function(message, code) {
@@ -363,7 +363,12 @@ use('sassmine').on(function(sas) {
 
 use('sassmine').on(function(sas) {
 
-	sas.ExpectationError = Class.extend.call(Error);
+	sas.ExpectationError = Class.extend.call(Error, {
+		constructor: function(message) {
+			Error.call(this, message);
+			this.message = message;
+		}
+	});
 
 	/*
 	 * Expectations
