@@ -384,12 +384,13 @@ use('sassmine').on(function(sas) {
 		constructor: function(value) {
 			this.base();
 			this.value = value;
+			this.and = this;
 		},
 
 		test: function(bool, message) {
 			if (bool !== this.success)
 				throw new sas.ExpectationError(message);
-			return true;
+			return this;
 		},
 
 		printObject: function(object) {
