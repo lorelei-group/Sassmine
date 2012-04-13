@@ -2,6 +2,7 @@
  * Copyright © 2009-2012 A. Matías Quezada
  */
 describe("Testing Sassmine", function() {
+
 	// We use a function than throws an error if execution is not expected
 	var test = function(expectation, expectedToPass) {
 		if (typeof expectation === 'boolean')
@@ -25,10 +26,17 @@ describe("Testing Sassmine", function() {
 		else
 			return true;
 	}
-	describe("The Expectations", testExpectations, true);
+	describe("The Expectations", testExpectations);
 	
-	// We overwrite original expect function by a copy than returns the 'not' expectation
+	// We overwrite original expect function by a copy than returns the 'not' and 'and' expectations
 	var originalExpect = expect;
+
+	expect = function() {
+		return originalExpect.apply(this, arguments).and;
+	};
+	describe("The AND Expectations", testExpectations);
+
+
 	expect = function() {
 		return originalExpect.apply(this, arguments).not;
 	};
@@ -54,9 +62,11 @@ describe("Testing Sassmine", function() {
 		else
 			return true;
 	}
-	describe("The NOT Expectations", testExpectations, true);
+	describe("The NOT Expectations", testExpectations);
 	
+
 	expect = originalExpect;
+
 
 	function testExpectations() {
 		describe("Expectation toBe", function() {
@@ -67,7 +77,6 @@ describe("Testing Sassmine", function() {
 				test(function() { expect(1).toBe(2); }, false);
 			});
 			it("should fail if the types are different", function() {
-				throw new Error("Pepito el verdulero es null");
 				test(function() { expect(1).toBe("1"); }, false);
 			});
 		});
