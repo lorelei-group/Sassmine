@@ -562,7 +562,7 @@ use('sassmine').on(function(sas) {
 		};
 		spy.reset = function() {
 			spy.callCount = 0;
-			spy.myArguments.length = 0;
+			myArguments.length = 0;
 			spy.scopes.length = 0;
 			spy.lastArguments = null;
 			spy.lastScope = null;
