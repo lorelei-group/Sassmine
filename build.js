@@ -568,6 +568,7 @@ use('sassmine').on(function(sas) {
 			spy.lastScope = null;
 		};
 
+		spy.scopes = [];
 		spy.reset();
 		return spy;
 	}
