@@ -1,7 +1,8 @@
 /**
  * Copyright © 2009-2012 A. Matías Quezada
  */
-describe("Testing Sassmine", function() {
+
+describe("Testing sassmine", function() {
 
 	// We use a function than throws an error if execution is not expected
 	var test = function(expectation, expectedToPass) {
@@ -12,7 +13,7 @@ describe("Testing Sassmine", function() {
 		try {
 			expectation();
 		} catch(err) {
-			if (err instanceof sassmine.ExpectationError) {
+			if (err instanceof sas.ExpectationError) {
 				if (expectedToPass)
 					throw new Error("Unexpected failed expectation: " + arguments.callee.caller);
 				else
@@ -27,7 +28,7 @@ describe("Testing Sassmine", function() {
 			return true;
 	}
 	describe("The Expectations", testExpectations);
-	
+
 	// We overwrite original expect function by a copy than returns the 'not' and 'and' expectations
 	var originalExpect = expect;
 
@@ -48,7 +49,7 @@ describe("Testing Sassmine", function() {
 		try {
 			expectation();
 		} catch(err) {
-			if (err instanceof sassmine.ExpectationError) {
+			if (err instanceof sas.ExpectationError) {
 				if (!expectedToPass)
 					throw new Error("Unexpected failed expectation: " + arguments.callee.caller);
 				else
@@ -63,7 +64,7 @@ describe("Testing Sassmine", function() {
 			return true;
 	}
 	describe("The NOT Expectations", testExpectations);
-	
+
 
 	expect = originalExpect;
 
@@ -130,7 +131,7 @@ describe("Testing Sassmine", function() {
 				test(function() { expect({}).toBeFalsy(); }, false);
 			});
 		});
-		
+
 		// It will test than a expectation returns false except with value
 		var array = [];
 		array.toString = function() { return "array instance"; };
@@ -173,7 +174,7 @@ describe("Testing Sassmine", function() {
 				test(function() { expect(null).toBeNaN(); }, false);
 			});
 		});
-		
+
 		function failIfIsNaN(expectation) {
 			it("should return false if the value is not a number (NaN)", function() {
 				test(function() { expect(NaN)[expectation](2, -2); }, false);
@@ -261,7 +262,7 @@ describe("Testing Sassmine", function() {
 			});
 			failIfIsNaN("toBeNegative");
 		});
-		
+
 		describe("Expectation toBeArray", function() {
 			shouldPassOnlyWith(array, "toBeArray");
 		});
@@ -271,7 +272,7 @@ describe("Testing Sassmine", function() {
 		describe("Expectation toBeInstanceOf", function() {
 			it("should return true if object is instance of given class", function() {
 				test(function() { expect([]).toBeInstanceOf(Array); }, true);
-				
+
 				function SampleClass() { };
 				it("even with custom classes", function() {
 					test(function() { expect(new SampleClass()).toBeInstanceOf(SampleClass); }, true);
@@ -385,7 +386,7 @@ describe("Testing Sassmine", function() {
 	describe("Spies", function() {
 		var spy;
 		function reset() {
-			spy = new sassmine.Spy();
+			spy = new sas.Spy();
 		}
 		beforeEach(reset);
 		describe("Call count behaviour", function() {
@@ -410,7 +411,7 @@ describe("Testing Sassmine", function() {
 				var args = [ 1, "test", false, null, undefined];
 				spy.call(this);
 				expect(spy.lastArguments.length).toBe(0);
-				
+
 				spy.apply(this, args);
 				expect(spy.lastArguments.length).toBe(args.length);
 				for (var i=args.length; i--; )
@@ -426,13 +427,13 @@ describe("Testing Sassmine", function() {
 				called = false;
 			});
 			it("should not call original by default", function() {
-				spy = new sassmine.Spy(sample);
+				spy = new sas.Spy(sample);
 				expect(called).toBeFalse();
 				spy();
 				expect(called).toBeFalse();
 			});
 			it("should call original function if second constructor argument is true", function() {
-				spy = new sassmine.Spy(sample);
+				spy = new sas.Spy(sample);
 				spy.setCallOriginal(true);
 				expect(called).toBeFalse();
 				spy();

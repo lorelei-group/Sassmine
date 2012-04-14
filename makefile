@@ -2,7 +2,8 @@
 
 build:
 	cat \
-		deps/jsbase/init.js \
+		deps/jsbase/lib/use.js \
+		deps/jsbase/lib/class.js \
 		lib/ConsolePrinter.js \
 		lib/DomPrinter.js \
 		lib/Block.js \
