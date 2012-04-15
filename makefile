@@ -6,7 +6,7 @@ build:
 		deps/jsbase/lib/class.js \
 		lib/ConsolePrinter.js \
 		lib/DomPrinter.js \
-		lib/Block.js \
+		lib/Test.js \
 		lib/Sassmine.js \
 		lib/Expectation.js \
 		lib/Spy.js \
