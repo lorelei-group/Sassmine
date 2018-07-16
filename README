@@ -1,4 +1,4 @@
-This is a clone of Jasmine BDD (http://pivotal.github.com/jasmine/) it has some changes, specially at the spies.
+This is a clone of Jasmine BDD (https://jasmine.github.io/) it has some changes, specially at the spies.
 
 Sample of usage can be found at test/sassmine.test.js
 
